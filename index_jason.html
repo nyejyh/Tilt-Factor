@@ -1,0 +1,342 @@
+<!-- Written by Jason Huang -->
+<!-- Contains jQuery for Javascript -->
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8" name="viewport" content="width=device-width, initial-scale=1">
+	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous">
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.0/jquery.min.js"></script>
+	<title>Tilt Factor</title>
+	<style>
+		#header {
+			height: 100px;
+			line-height: 100px;
+			text-align: center;
+		}
+		li.nostyle {
+			list-style-type: none;
+		}
+		#column_1 {
+			margin: 10px 0px 10px 15px;	
+		}
+		#column_2 {
+			margin: 10px 0px 10px 15px;
+		}
+	</style>
+</head>
+<body>
+	<div id="header">
+		<h1>Welcome To Tilt Factor</h1>
+	</div>
+	<div id="container">
+		<h4>Insert Your Developer API Key</h4>
+		<input id="API_KEY" />
+		<h4>Type in Summoner Name</h4>
+		<input id="userName" />
+		<input type="submit" onclick="summonerStats()" />
+		<br />
+		<h3>Summoner Information</h3>
+		<ol>
+			<li class="nostyle">Summoner Name: <span id="sName"></span></li>
+			<li class="nostyle">Summoner Level: <span id="sLevel"></span></li>
+			<li class="nostyle">Summoner ID: <span id="sID"></span></li>
+			<li class="nostyle">Summoner Icon ID: <span id="sIcon"></span></li>
+		</ol>
+		<div id="scoreboard">
+			<h3>Scoreboard</h3>
+			<ol>
+				<li class="nostyle">Blue Team Summoners' IDs: <span id="sBlue"></span></li>
+				<li class="nostyle">Blue Team Summoner Names: <span id="nBlue"></span></li>
+				<li class="nostyle">Blue Team Summoner Tiers: <span id="tBlue"></span></li>
+				<li class="nostyle">Blue Team Summoner Divisions: <span id="dBlue"></span></li>
+				<li class="nostyle">Blue Team Summoner League Points: <span id="lpBlue"></span></li>
+				<li class="nostyle">Blue Team Total MMR: <span id="mmrBlue"></span></li>
+				<br />
+				<li class="nostyle">Purple Team Summoners' IDs: <span id="sPurple"></span></li>
+				<li class="nostyle">Purple Team Summoner Names: <span id="nPurple"></span></li>
+				<li class="nostyle">Purple Team Summoner Tiers: <span id="tPurple"></span></li>
+				<li class="nostyle">Purple Team Summoner Divisions: <span id="dPurple"></span></li>
+				<li class="nostyle">Purple Team Summoner League Points: <span id="lpPurple"></span></li>
+				<li class="nostyle">Purple Team Total MMR: <span id="mmrPurple"></span></li>
+				<br />
+				<li class="nostyle">Game Number: <span id="sGame"></span></li>
+				<li class="nostyle">All Team Summoners' IDs: <span id="sAll"></span></li>
+				<li class="nostyle">All Team Summoner Names: <span id="nAll"></span></li>
+				<br />
+				<li class="nostyle">Your Tilt Factor: <span id="tiltFactor"></span></li>
+			</ol>
+		</div>
+	</div>
+	
+	<script>
+		//Grab basic information about player.
+		function summonerStats() {
+			var summonerName = "";
+			summonerName = $("#userName").val();
+			
+			var API = "";
+			API  = $("#API_KEY").val();
+			
+			if (summonerName !== "") {
+				$.ajax({
+					url: 'https://na.api.pvp.net/api/lol/na/v1.4/summoner/by-name/' + summonerName + '?api_key=' + API,
+					async: false,
+					type: 'GET',
+					dataType: 'json',
+					data: {},
+					success: function (json) {
+						
+						//cleaning up any capitalization or spaces.
+						var summonerNameNoSpaces = summonerName.replace(/\s+/g, "");
+						summonerNameNoSpaces = summonerNameNoSpaces.toLowerCase().trim();
+
+						//define all the small API requests here.
+						summonerPrintName = json[summonerNameNoSpaces].name;
+						summonerLevel = json[summonerNameNoSpaces].summonerLevel;
+						summonerID = json[summonerNameNoSpaces].id;
+						summonerIconID = json[summonerNameNoSpaces].profileIconId;
+						
+						//grab all the elementbyid and insert new data
+						document.getElementById("sName").innerHTML = summonerPrintName;
+						document.getElementById("sLevel").innerHTML = summonerLevel;
+						document.getElementById("sID").innerHTML = summonerID;
+						document.getElementById("sIcon").innerHTML = summonerIconID;
+						
+						//input next function using the same information here
+						summonersIDS(summonerID, API);
+					},
+					error: function (XMLHttpRequest, textStatus, errorThrown) {
+						alert("Error getting basic summoner data!");
+					}	
+				})
+			}
+		}
+		
+		//Need to grab all other 9 players from the first game here.
+		function summonersIDS(summonerID, API) {
+			$.ajax({
+				url: 'https://na.api.pvp.net/api/lol/na/v1.3/game/by-summoner/' + summonerID + '/recent?api_key=' + API,
+				type: 'GET',
+				dataType: 'json',
+				data: {},
+				success: function(json) {
+					//Declare arrays here, no need to be var.
+					blueArray = [];
+					purpleArray = [];
+					var onWhatTeam = 0;
+					
+					var z = 3;//control variable for what game you want.
+					
+					summonerGame = json.games[z].gameId;
+					document.getElementById("sGame").innerHTML = summonerGame;
+					
+					//Warning, they have control variable of z
+					if (json.games[z].gameType !== "CUSTOM_GAME") {
+						for (i = 0; i < 9; i++) {
+							if (json.games[z].fellowPlayers[i].teamId == "100") {
+								blueArray.push(json.games[z].fellowPlayers[i].summonerId);
+							} else if (json.games[z].fellowPlayers[i].teamId == "200") {
+								purpleArray.push(json.games[z].fellowPlayers[i].summonerId);
+							}
+						};
+					} else if (json.games[z].gameType !== "CUSTOM_GAME") {
+						alert("This person is a loner!")
+					};
+					
+					//Need to add summonerID into the correct team
+					if (json.games[z].teamId == "100") {
+						blueArray.push(summonerID);
+						onWhatTeam = 1;
+					} else {
+						purpleArray.push(summonerID);
+					}
+					
+					//Now we define the arrays after adding player ID into correct team
+					document.getElementById("sBlue").innerHTML = blueArray;
+					document.getElementById("sPurple").innerHTML = purpleArray;
+					
+					//input other function to use the same information here
+					teamStats(blueArray, purpleArray, onWhatTeam, API);
+				},
+				error: function (XMLHttpRequests, textStatus, errorThrown) {
+					alert("Error getting entire team data!");
+				}
+			});
+		}
+		
+		//Call the next ajax function for the rank section for called player AND other players
+		function teamStats(blueArray, purpleArray, onWhatTeam, API) {
+			//variables declared
+			var onWhatTeam = "No idea";
+			
+			//connect blueArray and purpleArray, display
+			allArray = blueArray.concat(purpleArray);
+			document.getElementById("sAll").innerHTML = allArray;			
+						
+			$.ajax({
+				url: 'https://na.api.pvp.net/api/lol/na/v2.5/league/by-summoner/' + allArray + '/entry?api_key=' + API,
+				type: 'GET',
+				dataType: 'json',
+				data: {},
+				success: function (json) {
+					blueNames = [];
+					purpleNames = [];
+					blueTiers = [];
+					purpleTiers = [];
+					blueD = [];
+					purpleD = [];
+					blueLP = [];
+					purpleLP = [];
+					blueMMR = 0;
+					purpleMMR = 0;
+					
+					//Console testing.
+					console.log(allArray);//normalarray
+					console.log(allArray.length);//length of array
+					console.log(json[allArray[0]]);//parent array
+					//console.log(json[allArray[0]][0]);//opens a player's stats
+					//console.log(json[allArray[1]]); // undefined but won't screw with me
+					//console.log(json[allArray[1]][0]);//once i hit unranked it throws undefined
+					//console.log(json[allArray[2]]); //CORRECTFORMAT
+					//console.log(json[allArray[3]][0]);
+					//console.log(json[allArray[0]][1]);//undefined
+					//console.log(json[allArray[0]][0].entries[0].playerOrTeamName);//got player name
+					
+					//Calling in each summoner Id from blue team generated earlier in array.
+					//Conditions are NOT the same as calling out the information, conditions can't go that deep.
+					for (i = 0; i < allArray.length; i++) {
+						if ((typeof json[allArray[i]] !== "undefined") && (json[allArray[i]][0].queue == "RANKED_SOLO_5x5") && (i < 5)) {
+							blueNames.push(json[allArray[i]][0].entries[0].playerOrTeamName);
+							blueTiers.push(json[allArray[i]][0].tier);
+							blueD.push(json[allArray[i]][0].entries[0].division);
+							blueLP.push(json[allArray[i]][0].entries[0].leaguePoints);
+						} else if ((typeof json[allArray[i]] !== "undefined") && (json[allArray[i]][0].queue == "RANKED_SOLO_5x5") && (i >= 5)) {
+							purpleNames.push(json[allArray[i]][0].entries[0].playerOrTeamName);
+							purpleTiers.push(json[allArray[i]][0].tier);
+							purpleD.push(json[allArray[i]][0].entries[0].division);
+							purpleLP.push(json[allArray[i]][0].entries[0].leaguePoints);
+						} else if ((typeof json[allArray[i]] == "undefined") && (i < 5)) {
+							blueNames.push("Unranked Blue Player");
+							blueTiers.push("Untiered Blue Player");
+							blueD.push("No Division");
+							blueLP.push("0");
+						} else if ((typeof json[allArray[i]] == "undefined") && (i >= 5 && i < allArray.length)) {
+							purpleNames.push("Unranked Purple Player");
+							purpleTiers.push("Untiered Blue Player");
+							purpleD.push("No Division");
+							purpleLP.push("0");
+						}
+					};
+					
+					//Calculate MMR for Blue Team
+					for (i = 0; i < blueTiers.length; i++) {
+						if (blueTiers[i] == "BRONZE") { 
+							blueMMR += 100;
+						} else if (blueTiers[i] == "SILVER") {
+							blueMMR += 200;
+						} else if (blueTiers[i] == "GOLD") {
+							blueMMR += 300;
+						} else if (blueTiers[i] == "PLATINUM") {
+							blueMMR += 400;
+						} else if (blueTiers[i] == "DIAMOND") {
+							blueMMR += 500;
+						} else if (blueTiers[i] == "MASTER") {
+							blueMMR += 600;
+						} else if (blueTiers[i] == "CHALLENGER") {
+							blueMMR += 700;
+						}
+					};
+					
+					for (i = 0; i < blueD.length; i++) {
+						if (blueD[i] == "V") { 
+							blueMMR += 100;
+						} else if (blueD[i] == "IV") {
+							blueMMR += 200;
+						} else if (blueD[i] == "III") {
+							blueMMR += 300;
+						} else if (blueD[i] == "II") {
+							blueMMR += 400;
+						} else if (blueD[i] == "I") {
+							blueMMR += 500;
+						}
+					};
+					
+					for (i = 0; i < blueLP.length; i++) {
+						blueMMR += blueLP[i];
+					};
+					
+					//Calculate MMR for Purple Team
+					for (i = 0; i < purpleTiers.length; i++) {
+						if (purpleTiers[i] == "BRONZE") { 
+							purpleMMR += 100;
+						} else if (purpleTiers[i] == "SILVER") {
+							purpleMMR += 200;
+						} else if (purpleTiers[i] == "GOLD") {
+							purpleMMR += 300;
+						} else if (purpleTiers[i] == "PLATINUM") {
+							purpleMMR += 400;
+						} else if (purpleTiers[i] == "DIAMOND") {
+							purpleMMR += 500;
+						} else if (purpleTiers[i] == "MASTER") {
+							purpleMMR += 600;
+						} else if (purpleTiers[i] == "CHALLENGER") {
+							purpleMMR += 700;
+						}
+					};
+					
+					for (i = 0; i < purpleD.length; i++) {
+						if (purpleD[i] == "V") { 
+							purpleMMR += 100;
+						} else if (purpleD[i] == "IV") {
+							purpleMMR += 200;
+						} else if (purpleD[i] == "III") {
+							purpleMMR += 300;
+						} else if (purpleD[i] == "II") {
+							purpleMMR += 400;
+						} else if (purpleD[i] == "I") {
+							purpleMMR += 500;
+						}
+					};
+					
+					for (i = 0; i < purpleLP.length; i++) {
+						purpleMMR += purpleLP[i];
+					};
+					
+					//Compare the teams' MMR and decide
+					if (((onWhatTeam = 0) && (blueMMR > purpleMMR)) || ((onWhatTeam = 1) && (blueMMR < purpleMMR))) {
+						tiltDecision = "Your team is looking good, get ready to tilt them!";
+					} else if (((onWhatTeam = 0) && (blueMMR < purpleMMR)) || ((onWhatTeam = 1) && (blueMMR > purpleMMR))) {
+						tiltDecision = "You are going to be TILTED TO THE MOON!";
+					};
+					
+					//compile arrays of blue players together with purple players
+					allNames = blueNames.concat(purpleNames);
+					
+					document.getElementById("nBlue").innerHTML = blueNames;
+					document.getElementById("nPurple").innerHTML = purpleNames;
+					document.getElementById("nAll").innerHTML = allNames;
+					document.getElementById("tBlue").innerHTML = blueTiers;
+					document.getElementById("tPurple").innerHTML = purpleTiers;
+					document.getElementById("dBlue").innerHTML = blueD;
+					document.getElementById("dPurple").innerHTML = purpleD;
+					document.getElementById("lpBlue").innerHTML = blueLP;
+					document.getElementById("lpPurple").innerHTML = purpleLP;
+					document.getElementById("mmrBlue").innerHTML = blueMMR;
+					document.getElementById("mmrPurple").innerHTML = purpleMMR;
+					document.getElementById("tiltFactor").innerHTML = tiltDecision;
+					
+					console.log(blueLP);
+					console.log(blueD);
+					console.log(blueTiers);
+					console.log(blueMMR);
+					console.log(purpleMMR);
+				},
+				error: function (XMLHttpRequests, textStatus, errorThrown) {
+					alert("Error getting team stats rank data, because all of the players are noobs who didn't rank (404)!");
+				}
+			})
+		}
+
+	</script>
+</body>
+</html>
